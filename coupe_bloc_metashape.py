@@ -957,6 +957,9 @@ def _build_ortho_for_view(chunk, doc, view_key, plane, bbox, tiff_path):
                                         except (AttributeError, RuntimeError, Exception):
                                             pass  # 1.5 : remove() absent ou non supporte
                                 except Exception: pass
+                                # 2.x : remplacer explicitement l'asset entre deux vues.
+                                if MS_MAJOR >= 2:
+                                    kw.setdefault("replace_asset", True)
                                 chunk.buildOrthomosaic(**kw)
                                 doc.save()
                                 if _export_ortho_one(chunk, tiff_path):
@@ -976,6 +979,13 @@ def _build_ortho_for_view(chunk, doc, view_key, plane, bbox, tiff_path):
     try:
         proj = Metashape.OrthoProjection()
         proj.type = Metashape.OrthoProjection.Type.Planar
+        # Compatibilite Metashape 2.2.x : le CRS doit etre defini pour que
+        # la matrice d'une projection planaire personnalisee soit respectee.
+        try:
+            if getattr(chunk, "crs", None) is not None:
+                proj.crs = chunk.crs.geoccs if getattr(chunk.crs, "geoccs", None) is not None else chunk.crs
+        except Exception as e:
+            print("  CRS OrthoProjection non defini : {0}".format(e))
         # Convention OrthoProjection : col 0 = right, col 1 = up, col 2 = back (-look)
         # Metashape inverse X lors du rendu -> inverser right_dir pour corriger le miroir
         m = Metashape.Matrix([
